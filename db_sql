@@ -1,0 +1,115 @@
+-- Création de la base de données
+CREATE DATABASE IF NOT EXISTS `ws_2` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `ws_2`;
+
+-- Table des rôles
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insertion des rôles par défaut
+INSERT INTO `roles` (`id`, `name`, `description`) VALUES
+(1, 'admin', 'Administrateur du système'),
+(2, 'support', 'Agent de support'),
+(3, 'user', 'Utilisateur standard');
+
+-- Table des utilisateurs
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL DEFAULT 3,
+  `image` varchar(255) DEFAULT 'default.jpg',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  `last_login` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `username` (`username`),
+  KEY `role_id` (`role_id`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insertion d'un admin par défaut (mot de passe: Admin123!)
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `role_id`, `created_at`) VALUES
+(1, 'admin', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, NOW());
+
+-- Table des tickets
+CREATE TABLE IF NOT EXISTS `tickets` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `subject` varchar(100) NOT NULL,
+  `description` text NOT NULL,
+  `status` enum('open','pending','closed') NOT NULL DEFAULT 'open',
+  `priority` enum('low','medium','high') NOT NULL DEFAULT 'medium',
+  `creator_id` int(11) NOT NULL,
+  `assigned_to` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  `closed_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `creator_id` (`creator_id`),
+  KEY `assigned_to` (`assigned_to`),
+  CONSTRAINT `tickets_ibfk_1` FOREIGN KEY (`creator_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `tickets_ibfk_2` FOREIGN KEY (`assigned_to`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des messages
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `content` text NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `ticket_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `sender_id` (`sender_id`),
+  KEY `ticket_id` (`ticket_id`),
+  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des sessions utilisateur
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id` varchar(255) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `payload` text NOT NULL,
+  `last_activity` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des logs d'activité
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `action` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `activity_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des paramètres système
+CREATE TABLE IF NOT EXISTS `settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `key` varchar(50) NOT NULL,
+  `value` text DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `key` (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insertion des paramètres par défaut
+INSERT INTO `settings` (`key`, `value`, `description`) VALUES
+('site_name', 'TicketFlow', 'Nom du site web'),
+('maintenance_mode', '0', 'Mode maintenance (1 = activé, 0 = désactivé)'),
+('tickets_per_page', '10', 'Nombre de tickets par page'),
+('default_user_role', '3', 'Rôle par défaut des nouveaux utilisateurs');
